@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "a backend project ",
   "main": "index.js",
-  "type" : "module",
+  "type": "module",
   "scripts": {
-    "dev" : "node index.js"
+    "dev": "node index.js"
   },
   "author": "Vineet Daga",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.3"
+  }
 }
