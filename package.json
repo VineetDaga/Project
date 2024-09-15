@@ -1,0 +1,12 @@
+{
+  "name": "project",
+  "version": "1.0.0",
+  "description": "a backend project ",
+  "main": "index.js",
+  "type" : "module",
+  "scripts": {
+    "dev" : "node index.js"
+  },
+  "author": "Vineet Daga",
+  "license": "ISC"
+}
