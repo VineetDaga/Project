@@ -70,3 +70,88 @@ const app = express();
 - **Port Listening**: The `app.listen()` method ensures that the app is only started on the specified port after the database connection has been successfully established, avoiding issues with starting the app before the database is ready.
 
 - **Modular Code**: While this approach works for smaller applications, as projects grow, it is advisable to move the database connection code into a separate file. This enhances modularity, making the codebase easier to maintain, refactor, and scale.
+
+### Approach 2: Writing the Database Connection Code in a Separate File
+
+This approach improves code modularity and cleanliness by moving the database connection logic to a separate file, making it easier to maintain and scale as the project grows.
+
+
+```javascript
+// Import necessary modules
+import mongoose from "mongoose";
+import { DB_NAME } from "../constant.js"; 
+// Importing the database name constant from another file
+
+// Function to connect to MongoDB
+const connectDB = async () => {
+    try {
+        // Connect to the MongoDB database using mongoose
+        const connectionInstant = await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);
+
+        // Log success message with the host of the connected database
+        console.log(`\n MongoDB connected !! DB HOST : ${connectionInstant.connection.host}`);
+        
+    } catch (error) {
+        // Log the error and exit the process if connection fails
+        console.log("MONGODB connection Failed: ", error);
+        process.exit(1);  // Exit the application with a failure code
+    }
+}
+
+// Export the connectDB function to be used in other files
+export default connectDB;
+```
+### Benefits of This Approach:
+- **Separation of Concerns:** Moving the database connection logic to a separate file keeps the index.js file clean and focused on starting the server.
+- **Modularity:** By separating the database connection, the function can be reused and tested independently.
+- **Maintainability:** Easier to update or change the database connection logic without affecting the rest of the application.
+
+
+### Server Initialization and Database Connection
+
+In this section, we combine the database connection with the server startup process. This approach ensures that the server only starts listening for requests after the database connection is successfully established.
+
+
+```javascript
+// Import required modules
+import dotenv from 'dotenv';  // To load environment variables
+import connectDB from './db/index.js';  // Importing the connectDB function for database connection
+import { app } from './app.js';  // Importing the Express app
+
+// Configure dotenv to load environment variables from a specific path
+dotenv.config({
+    path: './env'  // Specify the path to the .env file
+});
+
+// Connect to the database and then start the server
+connectDB()
+    .then(() => {
+        // If the database connection is successful, start the server
+        app.listen(process.env.PORT || 8000, () => {
+            console.log(`Server is running on port ${process.env.PORT || 8000}`);
+        });
+
+        // Error handling for server-level errors
+        app.on('error', (error) => {
+            console.log("Error: ", error);
+            throw error;
+        });
+    })
+    .catch((error) => {
+        // If the database connection fails, log the error and throw it
+        console.log("MONGO DB connection failed!!!: ", error);
+        throw error;
+    });
+
+```
+### Benefits of This Approach:
+
+1. **Sequential Execution**:  
+   The server only starts after the database connection is established, ensuring there’s no attempt to handle requests without a connected database.
+
+2. **Error Handling**:  
+   Proper error handling at both the database and server levels ensures that any issues are caught, logged, and the application does not run in an invalid state.
+
+3. **Environment Configuration**:  
+   Using `dotenv` allows for secure management of environment variables such as the database URI and port, ensuring sensitive information is not hardcoded in the source code.
+
