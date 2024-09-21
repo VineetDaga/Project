@@ -1,4 +1,8 @@
-# Lesson 1 - How to Connect a Database with MERN and Debugging It
+# VideoTube
+
+This is a project which i am using to learn more about backend development in javascript 
+
+## Lesson 1 - How to Connect a Database with MERN and Debugging It
 
 There are two key things to keep in mind when connecting the database with the backend:
 
@@ -7,7 +11,7 @@ There are two key things to keep in mind when connecting the database with the b
 
 ---
 
-## Database Connection Methods
+### Database Connection Methods
 
 There are two ways to connect the database:
 
@@ -18,7 +22,7 @@ The second approach is preferred for better code organization.
 
 ---
 
-## Approach 1: Writing the Entire Code for Connecting the Database in a Single File (`index.js`)
+### Approach 1: Writing the Entire Code for Connecting the Database in a Single File (`index.js`)
 
 In this approach, the entire database connection logic is written inside `index.js`. Below is an example of how this can be implemented:
 
