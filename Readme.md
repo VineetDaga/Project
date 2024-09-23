@@ -312,3 +312,409 @@ You can now easily access the values of sessionId or theme in your route handler
 * **CORS:** Ensures your backend can handle requests from different origins, usually a frontend on a different domain. It also allows the transmission of credentials like cookies between the frontend and backend.
 * **Cookie-Parser:** Parses cookies sent in HTTP requests and makes them accessible to the server for managing sessions, user data, or preferences
 
+## What are Middlewares in JavaScript (Backend)?
+
+**Middleware** is a function in JavaScript backend frameworks like **Express.js** that sits between the request from the client and the response from the server. It processes or handles the request before passing it to the next middleware function or route handler. Middleware functions can modify the `request` and `response` objects, terminate the request-response cycle, or pass control to the next middleware function in the stack.
+
+In Express.js, middleware can be used for various purposes such as:
+- **Logging** request details.
+- **Authenticating** users.
+- **Parsing** incoming request bodies (JSON, URL-encoded data).
+- **Serving static files**.
+- **Handling errors**.
+
+Middleware functions are executed in sequence, and they either:
+1. **End the request-response cycle** (by sending a response to the client), or
+2. **Pass control** to the next middleware function using `next()`.
+
+### How Middleware Functions Work in JavaScript Backend (Express.js)
+
+A middleware function takes three arguments:
+- `req`: The request object (information about the HTTP request).
+- `res`: The response object (allows you to send a response back to the client).
+- `next`: A function that allows the request to proceed to the next middleware in the chain.
+
+### Types of Middleware in Express.js
+
+1. **Application-Level Middleware**: Applied at the application level for all routes or specific routes.
+
+    ```js
+    const express = require('express');
+    const app = express();
+
+    // Application-level middleware
+    app.use((req, res, next) => {
+        console.log('Request URL:', req.url);
+        next(); // Pass control to the next middleware or route handler
+    });
+    ```
+
+2. **Router-Level Middleware**: Works similarly to application-level middleware, but applied to specific route instances.
+
+    ```js
+    const express = require('express');
+    const router = express.Router();
+
+    // Router-level middleware
+    router.use((req, res, next) => {
+        console.log('Request Method:', req.method);
+        next();
+    });
+
+    app.use('/api', router);
+    ```
+
+3. **Built-in Middleware**: Express.js has some built-in middleware for common tasks:
+   - `express.json()`: Parses incoming JSON requests.
+   - `express.urlencoded()`: Parses URL-encoded data.
+   - `express.static()`: Serves static files like HTML, CSS, and images.
+
+    ```js
+    // Built-in middleware to serve static files
+    app.use(express.static('public'));
+
+    // Built-in middleware to parse JSON
+    app.use(express.json());
+    ```
+
+4. **Third-Party Middleware**: Middleware developed by third parties for additional functionality, such as:
+   - `cookie-parser`: Parses cookies from incoming requests.
+   - `cors`: Enables Cross-Origin Resource Sharing (CORS).
+
+    ```js
+    const cookieParser = require('cookie-parser');
+    const cors = require('cors');
+
+    // Using third-party middleware
+    app.use(cors());
+    app.use(cookieParser());
+    ```
+
+5. **Error-Handling Middleware**: A special type of middleware designed to handle errors. It has four arguments: `err`, `req`, `res`, `next`.
+
+    ```js
+    // Error-handling middleware
+    app.use((err, req, res, next) => {
+        console.error(err.stack);
+        res.status(500).send('Something went wrong!');
+    });
+    ```
+
+### Middleware Example
+
+In this example, we have three middleware functions:
+- **Logger**: Logs each request's method and URL.
+- **Authenticator**: Simulates authentication by checking a query parameter.
+- **Request Handler**: Sends a response.
+
+```js
+const express = require('express');
+const app = express();
+
+// Middleware 1: Logger
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next(); // Proceed to the next middleware
+});
+
+// Middleware 2: Authenticator
+app.use((req, res, next) => {
+    if (req.query.auth === 'true') {
+        next(); // Proceed to the next middleware
+    } else {
+        res.status(403).send('Authentication required');
+    }
+});
+
+// Middleware 3: Request handler
+app.get('/', (req, res) => {
+    res.send('Welcome, authenticated user!');
+});
+
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+```
+
+### Flow of the Above Example:
+1. The **Logger** middleware logs the method and URL of every incoming request.
+2. The **Authenticator** middleware checks if the request contains the `auth=true` query parameter. If not, it sends a 403 response.
+3. If authentication passes, the final middleware **handles the request** and sends a response.
+
+### Summary of How Middleware Works:
+- **Middleware functions** can be applied globally or to specific routes.
+- They **modify requests** (e.g., parsing, adding data) and **send responses** or pass control to the next function.
+- Middleware can be **custom** or **pre-built** (like parsing, logging, CORS handling).
+- They run in sequence and **terminate the request** or pass it on using `next()`.
+
+### Conclusion
+Middleware is the backbone of most Express.js applications, allowing for organized request handling, clean separation of concerns, and the modular addition of features like logging, authentication, and error handling.
+
+## asyncHandler.js
+The code you provided defines an **asynchronous error-handling middleware wrapper** for Express.js route handlers. This wrapper is designed to handle asynchronous functions (like `async`/`await` code) and catch any errors that might occur during the execution of these functions, passing those errors to the Express error-handling mechanism.
+
+### Purpose of `asyncHandler`
+
+In Express.js, route handlers can often involve asynchronous operations (e.g., reading from a database or calling an external API). These asynchronous operations can throw errors, and if not properly handled, can cause issues such as unhandled promise rejections.
+
+Normally, when an error occurs in an `async` function, it must be caught manually using a `try-catch` block. This can lead to repetitive code in each route handler. The purpose of `asyncHandler` is to avoid writing `try-catch` blocks in every route and instead centralize error handling for asynchronous code in a reusable utility.
+
+### Explanation of the Code
+
+#### First Version of `asyncHandler`:
+```js
+const asyncHandler = (requestHandler) => {
+    (req, res, next) => {
+        Promise.resolve(requestHandler(req, res, next))
+        .catch((err) => next(err));
+    }
+};
+```
+
+This version of the `asyncHandler` is a wrapper function for asynchronous route handlers. Here's how it works:
+
+1. **Input**:
+   - `asyncHandler` takes a `requestHandler` (the actual route handler function you want to execute).
+   
+2. **Promise.resolve**:
+   - It wraps the `requestHandler` in a `Promise.resolve`. If `requestHandler` returns a promise (which all `async` functions do), it will either resolve or reject that promise.
+   
+3. **Error Handling**:
+   - If the `requestHandler`'s promise is rejected (i.e., an error occurs), the `.catch()` block captures the error and passes it to the `next(err)` function. This passes the error to Express's built-in error-handling middleware, ensuring that errors don't crash the application and are properly handled.
+
+4. **Execution**:
+   - This wrapper executes the `requestHandler` and deals with any errors by forwarding them to the next middleware in the chain (which is typically an error handler).
+
+#### Second Version of `asyncHandler`:
+```js
+const asyncHandler = (fn) => async (req, res, next) => {
+    try {
+        await fn(req, res, next);
+    } catch (error) {
+        res.status(error.code || 500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+```
+
+This second version works similarly but is written in a more explicit `async`/`await` style:
+
+1. **Input**:
+   - Like the first version, it takes a function `fn` (the route handler) as input.
+
+2. **Async/Await**:
+   - It uses `async`/`await` to run the `fn` (the actual route handler). `await fn(req, res, next)` ensures that the code inside `fn` is executed asynchronously, waiting for any asynchronous operations to complete.
+
+3. **Error Handling (Try-Catch)**:
+   - The `try-catch` block is used to catch any errors that occur during the execution of `fn`. If an error is thrown, it is caught by the `catch` block.
+   
+4. **Custom Error Response**:
+   - When an error occurs, it responds with an error status (`error.code` or `500` by default) and a JSON response containing the error message. This is a user-friendly way of returning error details to the client.
+
+### How the Wrapper is Used
+
+#### Without `asyncHandler`:
+Without this wrapper, each route handler that involves asynchronous code would need to manually handle errors, like so:
+
+```js
+app.get('/example', async (req, res, next) => {
+    try {
+        const data = await someAsyncOperation();
+        res.json(data);
+    } catch (err) {
+        next(err); // Manually passing errors to the error-handling middleware
+    }
+});
+```
+
+This leads to a lot of repetitive error handling with `try-catch` blocks.
+
+#### With `asyncHandler`:
+Using `asyncHandler`, the route can be simplified. You no longer need to write a `try-catch` block for every route handler:
+
+```js
+app.get('/example', asyncHandler(async (req, res, next) => {
+    const data = await someAsyncOperation();
+    res.json(data);
+}));
+```
+
+The `asyncHandler` will automatically catch any errors from `someAsyncOperation()` and pass them to the error-handling middleware without the need for `try-catch` inside every route handler.
+
+### Key Benefits
+
+1. **Centralized Error Handling**: The `asyncHandler` wrapper makes it easier to centralize error handling logic for asynchronous code, ensuring consistency across your application.
+   
+2. **Cleaner Route Handlers**: You don't need to write repetitive `try-catch` blocks inside every asynchronous route. This results in cleaner and more readable code.
+
+3. **Integration with Express Error-Handling**: When `asyncHandler` catches an error, it automatically forwards it to Express's built-in error-handling middleware by calling `next(err)`. This ensures that errors are handled according to your application's global error-handling logic.
+
+### How the Error is Passed to Express
+
+If an error occurs inside an `async` route handler, `asyncHandler` catches the error and calls `next(err)`.
+
+- When `next(err)` is called, Express will automatically skip all remaining non-error middleware and go directly to error-handling middleware, such as:
+
+```js
+app.use((err, req, res, next) => {
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal Server Error',
+    });
+});
+```
+
+This ensures that errors are handled gracefully and can be logged or responded to appropriately.
+
+### Summary
+
+- `asyncHandler` is a utility function that wraps asynchronous route handlers, allowing you to automatically catch errors and pass them to Express's error-handling middleware.
+- It simplifies route handlers by removing the need for `try-catch` blocks.
+- The first version uses `Promise.resolve` and `.catch` to handle promise-based errors, while the second version uses `async`/`await` and `try-catch`.
+- Both versions help ensure that any errors in asynchronous code are centrally managed and don't crash the application.
+
+## Overview of the `ApiError` Class
+The `ApiError` class you have defined extends the built-in JavaScript `Error` class, which is commonly used to handle and represent errors in JavaScript applications. The goal of this class is to provide a structured and standardized way to manage errors that occur in your application, particularly in an API or backend service. Let's break down the functionality in detail:
+
+### 1. **Class Definition**:
+```js
+class ApiError extends Error {
+```
+- The `ApiError` class inherits from the native `Error` class using `extends`. This means that `ApiError` will have the properties and methods of `Error` but can also have additional custom behavior.
+- The class is specifically designed to be used in an API or backend environment where errors need to carry additional context, such as an HTTP status code or detailed error messages.
+
+### 2. **Constructor**:
+```js
+constructor(
+    statusCode,
+    message = "Something Went Wrong",
+    errors = [],
+    stack = ""
+) {
+    super(message);
+```
+- **statusCode**: Represents the HTTP status code related to the error (e.g., `404` for Not Found, `500` for Internal Server Error). This is essential for providing context to the client or consumer of the API on the type of error.
+  
+- **message**: A human-readable error message. It defaults to `"Something Went Wrong"` if no custom message is provided. This is passed to the parent `Error` class through the `super()` call, which ensures that the `message` property is set on the error instance.
+
+- **errors**: This is an array meant to store additional error details, such as field-specific validation errors or any additional context that might be useful for debugging or for the client consuming the API. It defaults to an empty array.
+
+- **stack**: The stack trace that shows the origin of the error in the code. If a custom stack trace is provided, it will be assigned to the error; otherwise, the standard stack trace will be captured by calling `Error.captureStackTrace`.
+
+### 3. **Super Call**:
+```js
+super(message);
+```
+- The `super()` method is called to pass the error message to the parent `Error` class, ensuring that the standard `Error` behavior is retained and that the error message is set correctly on the instance.
+
+### 4. **Custom Properties**:
+```js
+this.statusCode = statusCode;
+this.errors = errors;
+this.data = null;
+this.message = message;
+this.success = false;
+```
+- **statusCode**: Stores the HTTP status code passed to the constructor. This is used to provide more specific context to the client about what went wrong.
+
+- **errors**: Stores any additional error information or validation errors, often useful for debugging or reporting more specific issues to the client.
+
+- **data**: Defaults to `null` and can be used later to hold any data associated with the error if needed. This could be additional error-related data.
+
+- **message**: This is the error message that can be customized when creating an instance of `ApiError`. It overrides the parent `Error`'s `message` property (though `super(message)` ensures the `Error` class's functionality is preserved).
+
+- **success**: Always set to `false` for errors, since an error generally means the request failed. This is a common pattern in APIs to indicate whether the operation succeeded or failed.
+
+### 5. **Handling Stack Trace**:
+```js
+if (stack) {
+    this.stack = stack;
+} else {
+    Error.captureStackTrace(this, this.constructor);
+}
+```
+- If a `stack` trace is provided, the constructor assigns it to the `this.stack` property, allowing for custom stack traces to be attached to the error.
+
+- If no stack trace is provided, the `Error.captureStackTrace()` method is called to generate the stack trace automatically. This captures the point in the code where the error was instantiated, allowing for easier debugging.
+
+### 6. **Example Usage**:
+You would use the `ApiError` class in your code like this:
+
+```js
+import { ApiError } from './ApiError';
+
+app.get('/some-endpoint', async (req, res, next) => {
+    try {
+        // Some logic that might throw an error
+        throw new ApiError(404, "Resource Not Found");
+    } catch (error) {
+        next(error); // Passes the error to the error-handling middleware
+    }
+});
+```
+In this example:
+- If a 404 error occurs (e.g., the requested resource isn't found), the `ApiError` class is used to throw an error with a specific status code and message.
+- This error can then be caught and passed to Express's error-handling middleware, which can respond to the client with the appropriate status code and message.
+
+### 7. **Error Handling Middleware**:
+In an Express app, you would typically have an error-handling middleware to capture and respond to errors like this:
+
+```js
+app.use((err, req, res, next) => {
+    if (err instanceof ApiError) {
+        res.status(err.statusCode).json({
+            success: err.success,
+            message: err.message,
+            errors: err.errors,
+        });
+    } else {
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+        });
+    }
+});
+```
+- If an `ApiError` is thrown, the middleware checks if the error is an instance of `ApiError`. It then uses the `statusCode`, `message`, and `errors` to form a structured response to the client.
+- If the error is not an instance of `ApiError`, it falls back to a generic `500 Internal Server Error`.
+
+### Summary
+
+- The `ApiError` class extends the default `Error` class to include custom properties such as `statusCode`, `errors`, and `success`, which are useful for API error responses.
+- It allows you to handle both standard and custom errors in a structured way and makes it easier to standardize error responses in an API.
+- The stack trace is either provided or automatically captured, and all errors thrown using this class can be passed to centralized error-handling middleware for further processing and response.
+
+## Overview of the `ApiResponse` Class
+
+The `ApiResponse` class is a utility designed to standardize responses sent from an API. It simplifies the process of creating consistent and structured responses, which can enhance the clarity of communication between the server and clients.
+
+#### Key Components:
+
+1. **Constructor Parameters**:
+   - **statusCode**: An HTTP status code indicating the result of the request (e.g., `200` for success, `404` for not found).
+   - **data**: The main payload of the response, which can contain the requested data or any relevant information.
+   - **message**: A custom message that describes the response. It defaults to "Success" if not provided.
+
+2. **Properties**:
+   - **statusCode**: Stores the HTTP status code of the response.
+   - **data**: Holds the data being returned to the client.
+   - **message**: A descriptive message regarding the response (e.g., "Success" or any custom message).
+   - **success**: A boolean indicating whether the response indicates a successful operation. This is determined by checking if the `statusCode` is less than `400` (i.e., status codes in the `200` range).
+
+#### Example Usage:
+```javascript
+// Creating a successful response
+const successResponse = new ApiResponse(200, { user: "John Doe" });
+
+// Creating an error response (e.g., bad request)
+const errorResponse = new ApiResponse(400, null, "Bad Request");
+
+// Response structure
+console.log(successResponse);
+// Output: { statusCode: 200, data: { user: 'John Doe' }, message: 'Success', success: true }
+```
+
+### Summary
+The `ApiResponse` class provides a standardized way to structure API responses, improving the consistency of responses sent from a server. By encapsulating the status code, data, message, and success status, it simplifies the handling of API responses in a clear and manageable format.
