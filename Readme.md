@@ -1079,6 +1079,7 @@ This `Video` model serves as a robust foundation for managing video content with
 
 ## Lecture 10: How to upload a file in Backend
 
+## Cloudinary Utils
 The given code sets up a function to upload files to **Cloudinary**, a cloud-based image and video management service, and handles errors gracefully, including removing the local file in case the upload fails. Below is a detailed explanation of how this code works, including its configuration, uploading process, and error handling.
 
 ### 1. Imports
@@ -1210,6 +1211,7 @@ uploadFile();
 
 4. **Modular Design**: The function is exported for easy reuse in different parts of the application.
 
+## Multer Middleware
 The provided code uses **Multer**, a middleware for handling multipart/form-data, which is primarily used for uploading files in a Node.js application. Let’s break down each part in detail:
 
 ### 1. **Multer: File Upload Middleware**
