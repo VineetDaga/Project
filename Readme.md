@@ -576,6 +576,34 @@ This ensures that errors are handled gracefully and can be logged or responded t
 - Both versions help ensure that any errors in asynchronous code are centrally managed and don't crash the application.
 
 ## Overview of the `ApiError` Class
+```javascript
+class ApiError extends Error{
+    constructor(
+        statusCode,
+        message = "Something Went Wrong",
+        errors = [],
+        stack = "",
+        
+    ){
+        super(message)
+        this.statusCode = statusCode;
+        this.errors = errors;
+        this.data = null;
+        this.message = message;
+        this.success = false;
+
+        if(stack){
+            this.stack = stack
+        }else{
+            Error.captureStackTrace(this,this.constructor)
+        }
+    }
+}
+
+export {ApiError};
+```
+
+
 The `ApiError` class you have defined extends the built-in JavaScript `Error` class, which is commonly used to handle and represent errors in JavaScript applications. The goal of this class is to provide a structured and standardized way to manage errors that occur in your application, particularly in an API or backend service. Let's break down the functionality in detail:
 
 ### 1. **Class Definition**:
@@ -592,8 +620,7 @@ constructor(
     message = "Something Went Wrong",
     errors = [],
     stack = ""
-) {
-    super(message);
+)
 ```
 - **statusCode**: Represents the HTTP status code related to the error (e.g., `404` for Not Found, `500` for Internal Server Error). This is essential for providing context to the client or consumer of the API on the type of error.
   
@@ -688,6 +715,19 @@ app.use((err, req, res, next) => {
 
 ## Overview of the `ApiResponse` Class
 
+```javascript
+class ApiResponse {
+    constructor(statusCode,data,message = "Success"){
+        this.statusCode = statusCode;
+        this.data = data;
+        this.message = message
+        this.success = statusCode < 400;
+    }
+}
+
+export {ApiResponse};
+```
+
 The `ApiResponse` class is a utility designed to standardize responses sent from an API. It simplifies the process of creating consistent and structured responses, which can enhance the clarity of communication between the server and clients.
 
 #### Key Components:
@@ -718,3 +758,321 @@ console.log(successResponse);
 
 ### Summary
 The `ApiResponse` class provides a standardized way to structure API responses, improving the consistency of responses sent from a server. By encapsulating the status code, data, message, and success status, it simplifies the handling of API responses in a clear and manageable format.
+
+## Lecture 9: User and Video model with hooks and JWT
+
+1. **USERMODEL**
+Here’s a detailed explanation of the User model code, breaking down each part for a comprehensive understanding:
+
+### 1. Imports
+
+```javascript
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import mongoose, { Schema } from 'mongoose';
+```
+
+- **`jsonwebtoken`**: A library used to create and verify JSON Web Tokens (JWT). This is essential for handling user authentication in web applications.
+  
+- **`bcrypt`**: A library that provides hashing functions for passwords. It helps securely store passwords by converting them into a fixed-length hash that cannot be easily reversed.
+
+- **`mongoose`**: An Object Data Modeling (ODM) library for MongoDB and Node.js, which provides a straightforward way to define schemas, interact with MongoDB, and manage data models.
+
+### 2. User Schema Definition
+
+```javascript
+const userSchema = new Schema({
+    username: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true,
+        index: true,
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true,
+    },
+    fullName: {
+        type: String,
+        required: true,
+        trim: true,
+        index: true,
+    },
+    avatar: {
+        type: String, //cloudinary URL for avatar
+        required: true,
+    },
+    coverImage: {
+        type: String, //cloudinary URL for cover image
+    },
+    password: {
+        type: String,
+        required: [true, "Please provide password to proceed"],
+    },
+    watchHistory: [{
+        type: Schema.Types.ObjectId,
+        ref: "Video",
+    }],
+    refreshToken: {
+        type: String,
+    }
+}, {
+    timestamps: true,
+});
+```
+
+- **Schema Definition**: This defines the structure of the user document in the MongoDB collection. Each property corresponds to a field in the database.
+
+  - **`username`**: 
+    - Type: String
+    - **`required`**: Ensures a username is provided.
+    - **`unique`**: No two users can share the same username.
+    - **`lowercase`**: Stores usernames in lowercase.
+    - **`trim`**: Removes any leading or trailing whitespace.
+    - **`index`**: Creates an index for faster searches based on username.
+
+  - **`email`**: Similar constraints as `username`, ensuring uniqueness and proper formatting.
+
+  - **`fullName`**: Requires a name, also indexed for quicker searches.
+
+  - **`avatar`**: A URL pointing to the user's avatar image, required for the user profile.
+
+  - **`coverImage`**: Optional URL for a cover image, providing additional customization.
+
+  - **`password`**: Required field that will store the hashed password.
+
+  - **`watchHistory`**: An array of ObjectIDs referencing the `Video` model, allowing the tracking of videos watched by the user.
+
+  - **`refreshToken`**: A string for storing the user's refresh token, used in session management.
+
+  - **`timestamps`**: Automatically adds `createdAt` and `updatedAt` fields to the schema, providing insights into when the document was created or last updated.
+
+### 3. Pre-save Middleware
+
+```javascript
+userSchema.pre("save", async function(next) {
+    if (!this.isModified("password")) return next();
+    this.password = await bcrypt.hash(this.password, 10);
+});
+```
+
+- **Purpose**: This middleware function is executed before saving a user document to the database.
+
+- **Functionality**:
+  - **`this.isModified("password")`**: Checks if the password field has been modified. If not, it calls `next()` to continue with the save operation without any changes.
+  - If the password is modified, it hashes the password using bcrypt's `hash` method with a salt round of 10, ensuring that the password is stored securely.
+
+### 4. Instance Methods
+
+#### 4.1. Password Validation
+
+```javascript
+userSchema.methods.isPasswordCorrect = async function(password) {
+    return await bcrypt.compare(password, this.password);
+}
+```
+
+- **Purpose**: This method checks whether a provided plain-text password matches the hashed password stored in the database.
+
+- **How it Works**:
+  - Uses `bcrypt.compare` to compare the given password with the hashed password (`this.password`).
+  - Returns `true` if the passwords match, enabling user authentication.
+
+#### 4.2. Generate Access Token
+
+```javascript
+userSchema.methods.generateAccessToken = function() {
+    return jwt.sign(
+        {
+            _id: this._id,
+            email: this.email,
+            username: this.username,
+            fullName: this.fullName,
+        },
+        process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
+    );
+}
+```
+
+- **Purpose**: Generates a JWT for the user, allowing them to authenticate requests to protected routes.
+
+- **How it Works**:
+  - The JWT includes the user's ID, email, username, and full name in its payload.
+  - The token is signed with a secret stored in environment variables, with an expiration time specified in the same environment variables.
+  - The generated token can then be sent to the client, allowing the user to make authenticated requests.
+
+#### 4.3. Generate Refresh Token
+
+```javascript
+userSchema.methods.generateRefreshToken = function() {
+    return jwt.sign(
+        {
+            _id: this._id,
+        },
+        process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+        }
+    );
+}
+```
+
+- **Purpose**: Similar to the access token, this method generates a refresh token for the user.
+
+- **How it Works**:
+  - The refresh token contains the user’s ID and is signed with a different secret, also stored in environment variables.
+  - The refresh token typically has a longer expiration time than the access token and is used to obtain new access tokens without requiring the user to log in again.
+
+### 5. Exporting the Model
+
+```javascript
+export const User = mongoose.model("User", userSchema);
+```
+
+- This line exports the User model, allowing it to be imported and used in other parts of the application.
+- The model provides an interface for creating, reading, updating, and deleting user documents in the MongoDB collection.
+
+### Summary of Features
+
+1. **User Management**: The schema defines how user data is stored and validated in the database, ensuring integrity and structure.
+   
+2. **Password Security**: Passwords are hashed before storage, making it difficult for attackers to retrieve plain-text passwords even if they gain access to the database.
+
+3. **Authentication**: The model supports generating access and refresh tokens, enabling secure, stateless authentication in web applications.
+
+4. **Data Relationships**: The `watchHistory` field allows for complex data interactions, linking users to their watched videos.
+
+5. **Middleware**: Pre-save hooks enhance functionality by ensuring that passwords are always hashed before saving to the database.
+
+This User model provides a solid foundation for user authentication and management in a Node.js application, leveraging the capabilities of Mongoose, JWT, and bcrypt to ensure security and performance.
+
+2. **Video Model**
+Here's a detailed explanation of the `Video` model code, breaking down each part for a comprehensive understanding:
+
+### 1. Imports
+
+```javascript
+import mongoose, { Schema } from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+```
+
+- **`mongoose`**: An Object Data Modeling (ODM) library for MongoDB and Node.js, which provides a schema-based solution to model application data.
+  
+- **`mongooseAggregatePaginate`**: A plugin for Mongoose that allows you to perform pagination on aggregation queries, enhancing the capabilities of data retrieval in your application.
+
+### 2. Video Schema Definition
+
+```javascript
+const videoSchema = new Schema({
+    videoFile: {
+        type: String, // cloudinary URL for the video file
+        required: true,
+    },
+    thumbnail: {
+        type: String, // cloudinary URL for the thumbnail image
+        required: true,
+    },
+    title: {
+        type: String,
+        required: true,
+    },
+    description: {
+        type: String,
+        required: true,
+    },
+    owner: {
+        type: Schema.Types.ObjectId,
+        ref: "User", // Reference to the User model
+    },
+    duration: {
+        type: Number, // Duration of the video in seconds
+        required: true,
+    },
+    views: {
+        type: Number,
+        default: 0, // Default value for views
+    },
+    isPublished: {
+        type: Boolean,
+        required: true,
+    }
+}, { timestamps: true });
+```
+
+- **Schema Definition**: This defines the structure of the video document in the MongoDB collection. Each property corresponds to a field in the database.
+
+  - **`videoFile`**: 
+    - Type: String
+    - **`required`**: Ensures that a video file URL is provided. Typically this would be a URL to a video file hosted on a service like Cloudinary.
+
+  - **`thumbnail`**: 
+    - Type: String
+    - **`required`**: Similar to `videoFile`, it stores the URL for the video's thumbnail image.
+
+  - **`title`**: 
+    - Type: String
+    - **`required`**: Represents the title of the video.
+
+  - **`description`**: 
+    - Type: String
+    - **`required`**: A brief description of the video's content.
+
+  - **`owner`**: 
+    - Type: Schema.Types.ObjectId
+    - **`ref`**: "User" indicates that this field references a user document from the `User` model. It establishes a relationship between videos and their owners.
+
+  - **`duration`**: 
+    - Type: Number
+    - **`required`**: Stores the duration of the video in seconds.
+
+  - **`views`**: 
+    - Type: Number
+    - **`default`**: Initialized to 0. It counts how many times the video has been viewed.
+
+  - **`isPublished`**: 
+    - Type: Boolean
+    - **`required`**: Indicates whether the video is published and visible to users.
+
+- **`{ timestamps: true }`**: Automatically adds `createdAt` and `updatedAt` fields to the schema. This is useful for tracking when the document was created or last modified.
+
+### 3. Plugin Integration
+
+```javascript
+videoSchema.plugin(mongooseAggregatePaginate);
+```
+
+- **Purpose**: This line integrates the `mongooseAggregatePaginate` plugin into the video schema. It enables the capability to perform aggregation queries with pagination support.
+  
+- **How it Works**: 
+  - With this plugin, you can execute aggregation queries that will return paginated results. This is especially useful when dealing with large datasets, allowing you to retrieve a subset of documents efficiently.
+
+### 4. Exporting the Model
+
+```javascript
+export const Video = mongoose.model("Video", videoSchema);
+```
+
+- This line exports the `Video` model, allowing it to be imported and used in other parts of the application.
+- The model provides an interface for creating, reading, updating, and deleting video documents in the MongoDB collection.
+
+### Summary of Features
+
+1. **Video Management**: The schema defines how video data is structured and stored in the database, ensuring integrity and a consistent format.
+
+2. **File Storage**: By using URLs (likely from Cloudinary), the application can efficiently manage video and image files without bloating the database with large binary data.
+
+3. **Owner Reference**: The schema links videos to users, enabling functionalities like tracking which user uploaded a specific video.
+
+4. **Views Tracking**: The `views` field helps maintain engagement metrics for videos, allowing for features like popular videos or statistics.
+
+5. **Publication Status**: The `isPublished` field allows for easy management of video visibility, facilitating features like drafts or private videos.
+
+6. **Aggregation and Pagination**: The integrated plugin enhances data retrieval capabilities, enabling efficient handling of large sets of videos with ease.
+
+This `Video` model serves as a robust foundation for managing video content within a Node.js application, leveraging the capabilities of Mongoose to facilitate structured data storage and retrieval while integrating with video storage services.
