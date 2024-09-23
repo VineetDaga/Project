@@ -159,6 +159,41 @@ connectDB()
 
 This code is a basic setup for an Express.js server that includes middleware for handling CORS, parsing JSON and URL-encoded data, serving static files, and parsing cookies.
 
+```javascript
+// Importing the Express framework to create an HTTP server
+import express from 'express';       
+ // Importing cookie-parser middleware to handle cookies
+import cookieParser from 'cookie-parser';
+// Importing CORS middleware to handle cross-origin requests
+import cors from 'cors';             
+
+ // Creating an instance of the Express application
+const app = express();              
+
+// Enabling CORS (Cross-Origin Resource Sharing)
+app.use(cors({
+    // Setting the allowed origin from environment variables
+    origin : process.env.CORS_ORIGIN,    
+    // Enabling credentials (cookies, authorization headers) to be sent
+    credentials : true,                  
+}));
+
+// Parsing incoming requests with JSON payloads, limiting the request size to 16kb
+app.use(express.json({limit : "16kb"}));
+
+// Parsing incoming requests with URL-encoded payloads, with a size limit of 16kb
+app.use(express.urlencoded({extended : true, limit : "16kb"}));
+
+// Serving static files from the 'public' directory
+app.use(express.static('public'));
+
+// Using cookie-parser to parse cookies from incoming requests and make them available in req.cookies
+app.use(cookieParser());
+
+// Exporting the app instance to use it in other files
+export {app}; 
+```
+
 Here's a breakdown of each part:
 
 ### 1. Importing Dependencies
@@ -239,3 +274,41 @@ CORS essentially tells the browser: "It's okay to make a request from this origi
 Example:
 * **Allowed Origin:** If the CORS_ORIGIN environment variable is set to `http://frontend.com`, requests from `http://frontend.com` to the backend will be allowed.
 * **Disallowed Origin:** If a request comes from `http://malicious.com`, it will be blocked because `http://malicious.com` is not an allowed origin.
+
+## 2. Cookie Parser
+Cookies are small pieces of data stored on the client (browser), often used for session management, user authentication, and tracking user preferences. When a client makes a request to the server, cookies are sent along with the request.
+
+The `cookie-parser` middleware in Express makes it easier to read cookies sent by the client and access their values in the server.
+
+### Why Cookies are Used:
+- **Session Management:** Storing session IDs to track logged-in users.
+- **User Preferences:** Storing settings like language preferences or theme choices.
+- **Authentication:** Cookies can hold tokens (e.g., JWT or session tokens) that the server uses to verify the user's identity.
+
+### How `cookie-parser` Works:
+```javascript
+app.use(cookieParser());
+```
+- When a client sends a request to the server, any cookies stored in the browser are automatically included in the request headers.
+- The `cookie-parser` middleware parses these cookies from the request and makes them available in `req.cookies`.
+
+### Example:
+If a client sends a request with the header:
+```javascript
+cookie: sessionId=abcd1234; theme=dark
+```
+The cookie-parser middleware will parse this and provide it as a JavaScript object:
+
+``` javascript
+req.cookies = {
+    sessionId: 'abcd1234',
+    theme: 'dark'
+};
+```
+
+You can now easily access the values of sessionId or theme in your route handlers.
+
+### Summary
+* **CORS:** Ensures your backend can handle requests from different origins, usually a frontend on a different domain. It also allows the transmission of credentials like cookies between the frontend and backend.
+* **Cookie-Parser:** Parses cookies sent in HTTP requests and makes them accessible to the server for managing sessions, user data, or preferences
+
