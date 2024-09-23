@@ -1076,3 +1076,289 @@ export const Video = mongoose.model("Video", videoSchema);
 6. **Aggregation and Pagination**: The integrated plugin enhances data retrieval capabilities, enabling efficient handling of large sets of videos with ease.
 
 This `Video` model serves as a robust foundation for managing video content within a Node.js application, leveraging the capabilities of Mongoose to facilitate structured data storage and retrieval while integrating with video storage services.
+
+## Lecture 10: How to upload a file in Backend
+
+The given code sets up a function to upload files to **Cloudinary**, a cloud-based image and video management service, and handles errors gracefully, including removing the local file in case the upload fails. Below is a detailed explanation of how this code works, including its configuration, uploading process, and error handling.
+
+### 1. Imports
+
+```javascript
+import { v2 as cloudinary } from "cloudinary";
+import fs from "fs";
+```
+
+- **`{ v2 as cloudinary } from "cloudinary"`**: This imports the **v2** version of the Cloudinary SDK and renames it to `cloudinary`. Cloudinary provides an API for managing and storing media (images, videos, etc.) in the cloud.
+  
+- **`fs` (File System)**: A core Node.js module for interacting with the file system. It's used to handle files, such as reading, writing, or deleting them locally.
+
+### 2. Cloudinary Configuration
+
+```javascript
+cloudinary.config({ 
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+    api_key: process.env.CLOUDINARY_API_KEY, 
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+```
+
+- **`cloudinary.config()`**: This method configures Cloudinary with your API credentials.
+  - **`process.env.CLOUDINARY_CLOUD_NAME`**: The name of your Cloudinary cloud account.
+  - **`process.env.CLOUDINARY_API_KEY`**: Your Cloudinary API key, which allows you to authenticate requests.
+  - **`process.env.CLOUDINARY_API_SECRET`**: Your Cloudinary API secret, used for securely signing API requests.
+
+These credentials are usually stored in environment variables (`process.env.*`) to avoid hardcoding sensitive information directly in your code. It ensures security and flexibility, especially in different environments (development, production, etc.).
+
+### 3. Function: `uploadOnCloudinary`
+
+```javascript
+const uploadOnCloudinary = async (localFilePath) => {
+    try {
+        if (!localFilePath) return null;
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "auto"
+        });
+        // file has been uploaded on cloudinary
+        console.log("file is uploaded on cloudinary", response.url);
+        return response;
+    } catch (error) {
+        // remove the local saved temporary file as the upload operation got failed
+        fs.unlinkSync(localFilePath);
+        return null;
+    }
+};
+```
+
+#### Parameters:
+- **`localFilePath`**: This is the path to the file on your local machine that you want to upload to Cloudinary.
+
+#### Workflow:
+
+1. **Check if `localFilePath` is provided**:
+    ```javascript
+    if (!localFilePath) return null;
+    ```
+    - If no file path is provided, the function immediately returns `null`. This prevents unnecessary processing and ensures that a valid file path is given for the upload.
+
+2. **Cloudinary File Upload**:
+    ```javascript
+    const response = await cloudinary.uploader.upload(localFilePath, {
+        resource_type: "auto"
+    });
+    ```
+    - **`cloudinary.uploader.upload()`**: This function uploads the file located at `localFilePath` to Cloudinary.
+    - **`resource_type: "auto"`**: This option tells Cloudinary to automatically detect the file type (image, video, or other types) and handle it accordingly.
+  
+    - **`await`**: Since this function is asynchronous, `await` is used to pause the function execution until the file upload is complete. Once done, the function returns a response containing the file details (such as the URL).
+
+    - **Response**: After a successful upload, the Cloudinary service returns a `response` object containing details about the uploaded file, including the file's public URL (`response.url`).
+
+    ```javascript
+    console.log("file is uploaded on cloudinary", response.url);
+    return response;
+    ```
+    - After a successful upload, it logs the URL of the uploaded file and returns the entire response object, which contains metadata like file URL, format, dimensions, and more.
+
+3. **Error Handling**:
+    ```javascript
+    } catch (error) {
+        fs.unlinkSync(localFilePath);
+        return null;
+    }
+    ```
+    - **Try-Catch Block**: This handles any errors that occur during the upload process. If the upload fails (due to network issues, invalid file, or any other error), it will enter the `catch` block.
+    - **`fs.unlinkSync(localFilePath)`**: This command deletes the file from the local system. It's useful because the local file was likely saved temporarily for upload purposes. If the upload fails, there's no need to keep the file locally, so it's deleted to free up storage space.
+    - **Return `null`**: If an error occurs, the function returns `null`, signaling that the upload was unsuccessful.
+
+### 4. Exporting the Function
+
+```javascript
+export { uploadOnCloudinary };
+```
+
+This statement exports the `uploadOnCloudinary` function so that it can be imported and used in other parts of the application. This is essential for maintaining a modular and reusable codebase.
+
+### Example Usage:
+
+Here's an example of how this function could be used:
+
+```javascript
+import { uploadOnCloudinary } from "./uploadService"; // Assuming the function is stored in uploadService.js
+
+// Example: Uploading a local file to Cloudinary
+const uploadFile = async () => {
+    const filePath = "/path/to/your/local/file.jpg";
+    const result = await uploadOnCloudinary(filePath);
+
+    if (result) {
+        console.log("File uploaded successfully!", result.url);
+    } else {
+        console.log("File upload failed");
+    }
+};
+
+uploadFile();
+```
+
+### Key Takeaways:
+
+1. **Cloudinary Integration**: The function uploads files to Cloudinary using their API, with the flexibility to handle different file types automatically.
+  
+2. **Error Handling**: If the upload fails, the function deletes the local file and returns `null`, making it safe for temporary file handling.
+
+3. **Secure Configuration**: The Cloudinary API credentials are kept secure through environment variables, ensuring that sensitive information isn't hardcoded in the source code.
+
+4. **Modular Design**: The function is exported for easy reuse in different parts of the application.
+
+The provided code uses **Multer**, a middleware for handling multipart/form-data, which is primarily used for uploading files in a Node.js application. Let’s break down each part in detail:
+
+### 1. **Multer: File Upload Middleware**
+
+```javascript
+import multer from "multer";
+```
+
+- **`multer`**: Multer is a middleware for handling multipart/form-data (forms that allow file uploads). It is designed to process file uploads in Node.js and Express applications. It handles file streams and saves them to the disk or any other destination.
+
+### 2. **Storage Configuration for Multer**
+
+```javascript
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "./public/temp")
+    },
+    filename: function (req, file, cb) {
+      cb(null, file.originalname)
+    }
+})
+```
+
+- **`multer.diskStorage()`**: This function allows you to control how and where the uploaded files are stored on the disk. Multer provides `diskStorage` as a storage engine to specify a destination folder and filename for the uploaded file.
+
+#### 2.1 **Destination Function**:
+
+```javascript
+destination: function (req, file, cb) {
+  cb(null, "./public/temp")
+}
+```
+
+- **`destination`**: This is a function that determines the folder where the uploaded files will be stored. It accepts three arguments:
+  - **`req`**: The HTTP request object.
+  - **`file`**: The file being uploaded.
+  - **`cb` (callback)**: A callback function that must be called with two arguments:
+    - The first argument is `null` to indicate no errors.
+    - The second argument is the path (`"./public/temp"`) where the file should be stored.
+
+In this case, all uploaded files are saved in the `./public/temp` directory. You may change this directory based on your needs, such as storing files in a permanent folder or a different location.
+
+#### 2.2 **Filename Function**:
+
+```javascript
+filename: function (req, file, cb) {
+  cb(null, file.originalname)
+}
+```
+
+- **`filename`**: This function allows you to control the filename of the uploaded file. It accepts the same three arguments as the `destination` function:
+  - **`req`**: The HTTP request object.
+  - **`file`**: The file being uploaded.
+  - **`cb`**: A callback function used to determine the filename.
+  
+- **`file.originalname`**: This property is the original name of the file as it was uploaded by the user. In this case, the uploaded file will retain its original name when saved in the `temp` folder.
+
+You can customize the filename if necessary. For example, you might append a timestamp or generate a unique ID to avoid filename conflicts:
+```javascript
+cb(null, Date.now() + "-" + file.originalname)
+```
+This would give each file a unique name by prefixing the original name with the current timestamp.
+
+### 3. **Multer Middleware for Uploading Files**
+
+```javascript
+export const upload = multer({ 
+    storage,
+})
+```
+
+- **`multer({ storage })`**: This creates a Multer instance that uses the `storage` configuration defined earlier. It configures Multer to use the specified destination and filename rules for file uploads.
+
+- **`export const upload`**: The `upload` object is exported and can be used in other parts of your application to handle file uploads. It encapsulates the file-handling logic (e.g., storage and filename configuration) and is set up as middleware that can be plugged into your routes.
+
+### 4. **Example Usage: Uploading a File in an Express Route**
+
+Here’s how you might use the `upload` middleware in a route to handle file uploads:
+
+```javascript
+import express from "express";
+import { upload } from "./uploadService"; // Assuming the code above is saved in uploadService.js
+
+const app = express();
+
+app.post("/upload", upload.single("file"), (req, res) => {
+    // File upload is handled by Multer, and the file is stored at the destination
+    if (!req.file) {
+        return res.status(400).send("No file uploaded.");
+    }
+    res.status(200).send("File uploaded successfully!");
+});
+```
+
+#### Explanation:
+
+- **`upload.single("file")`**: This specifies that the route will handle a single file upload with the form field name "file". Multer will take care of reading the file stream from the request and saving it to the destination folder with the specified filename.
+  
+- **`req.file`**: After Multer processes the file, the uploaded file's information is available on `req.file`. If no file is uploaded, `req.file` will be undefined.
+
+- **Response**: After the file is successfully uploaded, the server responds with a success message.
+
+### 5. **Key Features of Multer Configuration**:
+
+- **Custom Destination**: The `destination` function allows you to define a custom directory for storing uploaded files. In this case, it's `./public/temp`, but you can change this path based on your application's needs (e.g., user-specific folders or cloud storage).
+
+- **Custom Filenames**: The `filename` function ensures that you can specify the naming convention for uploaded files. Using `file.originalname` keeps the original filename, but you can also customize it by appending timestamps, user IDs, or other unique identifiers.
+
+- **Storage Management**: By using `multer.diskStorage()`, Multer ensures that file uploads are managed efficiently on the local disk. You can easily switch to another storage engine, like cloud storage (AWS S3, Google Cloud), by modifying the storage configuration.
+
+### 6. **Advanced Usage and Notes**:
+
+- **Handling Multiple Files**:
+  Multer can also handle multiple files in a single upload. You can modify the route to allow multiple files:
+  
+  ```javascript
+  app.post("/upload", upload.array("files", 5), (req, res) => {
+      if (!req.files) {
+          return res.status(400).send("No files uploaded.");
+      }
+      res.status(200).send("Files uploaded successfully!");
+  });
+  ```
+  - **`upload.array("files", 5)`**: This allows up to 5 files to be uploaded under the form field name "files".
+
+- **File Filtering**: You can also add a file filter to restrict the types of files that can be uploaded, such as only allowing images:
+  
+  ```javascript
+  const fileFilter = (req, file, cb) => {
+      if (file.mimetype.startsWith("image/")) {
+          cb(null, true); // Accept the file
+      } else {
+          cb(new Error("Not an image!"), false); // Reject the file
+      }
+  };
+
+  export const upload = multer({ 
+      storage,
+      fileFilter
+  });
+  ```
+
+In this case, the `fileFilter` ensures that only files with a MIME type starting with "image/" are accepted.
+
+### Conclusion:
+
+The code sets up a simple but effective file upload mechanism using Multer in a Node.js and Express environment. It defines:
+- **Custom file storage and file-naming logic**.
+- **Local disk storage for uploaded files**.
+- It handles errors gracefully, such as missing files in the request.
+
+This setup is modular and reusable, making it a good starting point for handling file uploads in most Node.js applications. You can easily extend this by integrating cloud storage or more advanced file handling features like file validation and filtering.
