@@ -155,3 +155,87 @@ connectDB()
 3. **Environment Configuration**:  
    Using `dotenv` allows for secure management of environment variables such as the database URI and port, ensuring sensitive information is not hardcoded in the source code.
 
+## Lesson 2: Custom API response and Error Handling
+
+This code is a basic setup for an Express.js server that includes middleware for handling CORS, parsing JSON and URL-encoded data, serving static files, and parsing cookies.
+
+Here's a breakdown of each part:
+
+### 1. Importing Dependencies
+```javascript
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+```
+* **express:** The framework for building the Node.js server.
+* **cookieParser:** Middleware to parse cookies attached to client requests.
+* **cors:** Middleware to handle Cross-Origin Resource Sharing (CORS), allowing client applications from different domains to access your server.
+
+### 2. Creating an Express Application
+```javascript
+const app = express();
+```
+* `app` is an instance of an Express application, which you will use to define routes, middleware, and other server logic.
+
+### 3. Setting Up Middleware
+1. CORS Configuration
+     ```javascript
+        app.use(cors({
+        origin : process.env.CORS_ORIGIN,
+        credentials : true,
+    }));
+    ```
+- **CORS configuration:** This ensures that your API can handle requests from different origins.
+    - `origin: process.env.CORS_ORIGIN:` Specifies the allowed origin(s). This value is pulled from the environment variable `CORS_ORIGIN`.
+    - `credentials: true:` This option enables sending cookies and other credentials with the request.
+2. JSON and URL-Encoded Data Parsing
+```javascript
+app.use(express.json({limit : "16kb"}));
+app.use(express.urlencoded({extended : true, limit : "16kb"}));
+```
+
+- `express.json({limit: "16kb"})`: This middleware parses incoming JSON requests, limiting the payload to 16KB to prevent large uploads.
+- `express.urlencoded({extended: true, limit: "16kb"})`: This middleware parses incoming URL-encoded data (typically from HTML forms). The `extended: true` option allows for rich objects and arrays to be encoded into the URL-encoded format.
+3. Serving Static Files
+```javascript
+app.use(express.static('public'));
+```
+- This middleware serves static files (such as images, CSS, or JavaScript files) from the `public` directory.
+4. Cookie Parsing
+```javascript
+app.use(cookieParser());
+```
+- `cookieParser()`: This middleware parses cookies from the incoming requests and makes them available on `req.cookies`.
+### 4. Exporting the App
+```javascript
+export { app };
+```
+- The Express app is exported for use in another file, typically where the server would be started (e.g., `server.js`).
+
+## CORS and Cookie Parser in Express
+
+### 1. CORS (Cross-Origin Resource Sharing)
+CORS is a security mechanism that allows servers to control which origins (domains) can access their resources. By default, web browsers restrict cross-origin requests (i.e., requests made from a different domain than the one serving the website). This is part of the browser's security model, known as the **same-origin policy**.
+
+### Why CORS is Needed:
+Imagine you have a frontend application hosted on `http://frontend.com`, and your backend API is hosted on `http://api.backend.com`. When the frontend application tries to make an HTTP request to the backend API, the browser will block it because they are on different origins.
+
+To allow such requests, the server (`http://api.backend.com`) must explicitly specify which domains (origins) can access its resources. This is where **CORS** comes into play.
+
+### How CORS Works in the Code:
+You can use the `cors` middleware to set up CORS rules:
+
+```javascript
+app.use(cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+}));
+```
+* **origin:** Specifies the allowed origins. This is often set dynamically based on an environment variable `(process.env.CORS_ORIGIN)`. For example, it could be set to `http://frontend.com`, meaning that only requests from this domain will be allowed.
+* **credentials:** Set to `true` to allow cookies and authentication headers to be sent with requests. This is necessary if the frontend needs to make authenticated requests to the backend.
+
+CORS essentially tells the browser: "It's okay to make a request from this origin." Without this, the browser would block the request due to security policies.
+
+Example:
+* **Allowed Origin:** If the CORS_ORIGIN environment variable is set to `http://frontend.com`, requests from `http://frontend.com` to the backend will be allowed.
+* **Disallowed Origin:** If a request comes from `http://malicious.com`, it will be blocked because `http://malicious.com` is not an allowed origin.
