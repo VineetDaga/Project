@@ -761,7 +761,7 @@ The `ApiResponse` class provides a standardized way to structure API responses, 
 
 ## Lecture 9: User and Video model with hooks and JWT
 
-1. **USERMODEL**
+## **USERMODEL**
 Here’s a detailed explanation of the User model code, breaking down each part for a comprehensive understanding:
 
 ### 1. Imports
@@ -952,7 +952,7 @@ export const User = mongoose.model("User", userSchema);
 
 This User model provides a solid foundation for user authentication and management in a Node.js application, leveraging the capabilities of Mongoose, JWT, and bcrypt to ensure security and performance.
 
-2. **Video Model**
+## **Video Model**
 Here's a detailed explanation of the `Video` model code, breaking down each part for a comprehensive understanding:
 
 ### 1. Imports
